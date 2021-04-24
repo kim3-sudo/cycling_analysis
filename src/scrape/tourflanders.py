@@ -63,7 +63,7 @@ for index, url in enumerate(url_list):
         soup = BeautifulSoup(data.text, 'lxml')
         
         stage = soup.find('option', attrs={'selected': '', 'value': re.compile('\/result')})
-        year = soup.find('option', attrs={'selected': '', 'value': re.compile('\/\d\d\d\d')})
+        year = i[-4:]
         
         table = soup.find('table', attrs = {'class': 'results'})
         
@@ -157,11 +157,11 @@ for index, url in enumerate(url_list):
             row['time'] = str(timedelta(seconds = activeTime))
         
         df.to_csv(endfile + str(raceid) + '.csv')
-        alldf.append(df, ignore_index = True)
+        alldf = alldf.append(df, ignore_index = True)
 
     except Exception as e:
         print('')
         print('Error', e)
         print('Maybe it was a TT or the year\s competition was skipped?')
 
-alldf.to_csv(endfile + str(raceid) + 'all.csv')
+alldf.to_csv(endfile + 'tour_of_flanders_all.csv')
