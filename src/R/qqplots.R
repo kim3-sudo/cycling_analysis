@@ -6,9 +6,6 @@
 library(dplyr)
 library(mosaic)
 library(lubridate)
-library(strsplit)
-library(distr)
-library(parallel)
 library(car)
 
 # Read data in
@@ -58,5 +55,5 @@ for (row in 1:nrow(tourOfTheAlps)) {
 tourOfTheAlps$supertuck <- supertuckVector
 supertuckData <- tally(timediffsec ~ supertuck, data = filter(tourOfTheAlps, timediffsec != 0))
 
-car::qqPlot(filter(tourOfTheAlps, supertuck == FALSE)$timediffsec)
-car::qqPlot(filter(tourOfTheAlps, supertuck != FALSE)$timediffsec)
+car::qqPlot(filter(tourOfTheAlps, supertuck == FALSE)$timediffsec, main = "Normal Q-Q Plot without supertucks", ylab = "Time difference from winner (secs)")
+car::qqPlot(filter(tourOfTheAlps, supertuck != FALSE)$timediffsec, main = "Normal Q-Q Plot with supertucks", ylab = "Time difference from winner (secs)")
