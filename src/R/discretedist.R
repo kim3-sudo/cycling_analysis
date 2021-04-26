@@ -8,6 +8,7 @@ library(mosaic)
 library(lubridate)
 library(strsplit)
 library(distr)
+library(parallel)
 
 # Read data in
 tourOfTheAlps <- readRDS(url('https://github.com/kim3-sudo/cycling_analysis_data/blob/main/rds/tour_of_the_alps.rds?raw=true'))
@@ -277,4 +278,76 @@ clusterEvalQ(computeCluster, {
 })
 clusterEvalQ(computeCluster, result <- chisq.test(stageXtimediffsec, simulate.p.value = TRUE, B = 100000))
 clusterEvalQ(computeCluster, print(result))
+stopCluster(computeCluster)
+
+# Create a distribution for supertuck and no-supertuck (2021 vs everything else)
+tota2021_ac <- DiscreteDistribution(supp = c(filter(tourOfTheAlps, year == '2021')$timediffsec))
+tota2021_ac
+plot(tota2021_ac, panel.first = grid(lwd = 2), lwd = 3, main = "Discrete Distribution for TOTA 2021 (w/o supertuck)")
+
+totaallelse_ac <- DiscreteDistribution(supp = c(filter(tourOfTheAlps, year != 2021)$timediffsec))
+totaallelse_ac
+plot(totaallelse_ac, panel.first = grid(lwd = 2), lwd = 3, main = "Discrete Distribution for TOTA 2021 (w/ supertuck)")
+
+# Test those distributions
+## Create a new column for supertuck
+supertuckVector <- logical(length(1:nrow(tourOfTheAlps)))
+for (row in 1:nrow(tourOfTheAlps)) {
+  if (tourOfTheAlps[row, "year"] == 2021) {
+    supertuckVector[row] <- as.logical(FALSE)
+  } else if (tourOfTheAlps[row, "year"] != 2021) {
+    supertuckVector[row] <- as.logical(TRUE)
+  }
+}
+tourOfTheAlps$supertuck <- supertuckVector
+supertuckData <- tally(timediffsec ~ supertuck, data = filter(tourOfTheAlps, timediffsec != 0))
+result <- chisq.test(supertuckData)
+print(result)
+# With a simulation because of low values
+result <- chisq.test(supertuckData, simulate.p.value = TRUE, B = 10000)
+print(result)
+# And with multicore simulation for 100K replicates
+numCores <- detectCores()
+print(paste('Using', numCores, 'cores'))
+computeCluster <- makeCluster(numCores)
+clusterEvalQ(computeCluster, {
+  library(mosaic)
+})
+clusterEvalQ(computeCluster, tourOfTheAlps <- readRDS(url('https://github.com/kim3-sudo/cycling_analysis_data/blob/main/rds/tour_of_the_alps.rds?raw=true')))
+clusterEvalQ(computeCluster, {
+  timediffsecVector <- numeric(length(1:nrow(tourOfTheAlps)))
+  for (row in 1:nrow(tourOfTheAlps)) {
+    tryCatch(
+      expr = {
+        seconds <- 0
+        splitTime <- unlist(strsplit(tourOfTheAlps[row, "timediff"], ":"))
+        hoursToSeconds <- as.numeric(splitTime[[1]]) * 3600
+        minutesToSeconds <- as.numeric(splitTime[[2]]) * 60 # This line is returning an error but the loop runs right, double-check?
+        seconds <- hoursToSeconds + minutesToSeconds + as.numeric(splitTime[[3]])
+        timediffsecVector[row] <- as.numeric(seconds)
+      },
+      error = function(e) {
+        print('oopsie i made a fucky wucky a wittle oopsie doopsie')
+      }
+    )
+  }
+  tourOfTheAlps$timediffsec <- timediffsecVector
+  stageXtimediffsec <- tally(timediffsec ~ stage, data =  filter(tourOfTheAlps, timediffsec != 0))
+  supertuckVector <- logical(length(1:nrow(tourOfTheAlps)))
+  for (row in 1:nrow(tourOfTheAlps)) {
+    if (tourOfTheAlps[row, "year"] == 2021) {
+      supertuckVector[row] <- as.logical(FALSE)
+    } else if (tourOfTheAlps[row, "year"] != 2021) {
+      supertuckVector[row] <- as.logical(TRUE)
+    }
+  }
+  tourOfTheAlps$supertuck <- supertuckVector
+  supertuckData <- tally(timediffsec ~ supertuck, data = filter(tourOfTheAlps, timediffsec != 0))
+})
+clusterEvalQ(computeCluster, {
+  result <- chisq.test(supertuckData, simulate.p.value = TRUE, B = 100000)
+})
+clusterEvalQ(computeCluster, {
+  print(result)
+})
 stopCluster(computeCluster)
