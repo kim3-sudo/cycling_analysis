@@ -108,6 +108,33 @@ for index, url in enumerate(url_list):
             if str(row['rank']).isnumeric() == False:
                 df = df.drop([index])
                 
+        differenceList = []
+        # Clean up time differences
+        for index, row in tqdm(df.iterrows(), desc='Difference clean'):
+            currentTime = str(row['time'])
+            if '+' not in currentTime:
+                differenceList.append('00:00:00')
+            elif '+' in currentTime:
+                addTimeH, addTimeM, addTimeS = 0, 0, 0
+                addSeconds = 0
+                count = 0
+                for i in currentTime:
+                    if i == ':':
+                        count = count + 1
+                if count == 0:
+                    continue
+                elif count == 1:
+                    addTimeM, addTimeS = currentTime.split(':')
+                    addSeconds = int(addTimeM) * 60 + int(addTimeS)
+                elif count == 2:
+                    addTimeH, addTimeM, addTimeS = currentTime.split(':')
+                    addSeconds = int(addTimeH) * 3600 + int(addTimeM) * 60 + int(addTimeS)
+                else:
+                    continue
+                differenceList.append(str(timedelta(seconds = addSeconds)))
+        
+        df['timediff'] = differenceList
+        
         # Standardize times to winner's time
         winTimeSeconds = 0
         for index, row in tqdm(df.iterrows(), desc='Normalize times'):
